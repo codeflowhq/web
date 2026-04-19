@@ -8,47 +8,47 @@
     "matplotlib"
   ],
   "wheelUrls": [
-    "/pyodide/wheels/code_visualizer-0.1.0-py3-none-any.whl"
+    "pyodide/wheels/code_visualizer-0.1.0-py3-none-any.whl"
   ],
   "pythonSources": [
     {
-      "url": "/pyodide/python/query_engine/__init__.py",
+      "url": "pyodide/python/query_engine/__init__.py",
       "path": "query_engine/__init__.py"
     },
     {
-      "url": "/pyodide/python/query_engine/core.py",
+      "url": "pyodide/python/query_engine/core.py",
       "path": "query_engine/core.py"
     },
     {
-      "url": "/pyodide/python/query_engine/exceptions.py",
+      "url": "pyodide/python/query_engine/exceptions.py",
       "path": "query_engine/exceptions.py"
     },
     {
-      "url": "/pyodide/python/query_engine/pipeline_steps.py",
+      "url": "pyodide/python/query_engine/pipeline_steps.py",
       "path": "query_engine/pipeline_steps.py"
     },
     {
-      "url": "/pyodide/python/query_engine/utils.py",
+      "url": "pyodide/python/query_engine/utils.py",
       "path": "query_engine/utils.py"
     },
     {
-      "url": "/pyodide/python/step_tracer/__init__.py",
+      "url": "pyodide/python/step_tracer/__init__.py",
       "path": "step_tracer/__init__.py"
     },
     {
-      "url": "/pyodide/python/step_tracer/models.py",
+      "url": "pyodide/python/step_tracer/models.py",
       "path": "step_tracer/models.py"
     },
     {
-      "url": "/pyodide/python/step_tracer/step_tracer_utils.py",
+      "url": "pyodide/python/step_tracer/step_tracer_utils.py",
       "path": "step_tracer/step_tracer_utils.py"
     },
     {
-      "url": "/pyodide/python/step_tracer/tracer.py",
+      "url": "pyodide/python/step_tracer/tracer.py",
       "path": "step_tracer/tracer.py"
     },
     {
-      "url": "/pyodide/python/step_tracer/tracer_transformer.py",
+      "url": "pyodide/python/step_tracer/tracer_transformer.py",
       "path": "step_tracer/tracer_transformer.py"
     }
   ],

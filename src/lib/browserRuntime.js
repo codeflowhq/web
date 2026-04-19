@@ -1,6 +1,19 @@
 const PYODIDE_VERSION = "0.27.5";
 const PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v" + PYODIDE_VERSION + "/full/pyodide.js";
-const RUNTIME_CONFIG_URL = "/pyodide/runtime-config.json";
+const APP_BASE_URL = import.meta.env.BASE_URL ?? "/";
+
+const resolveAssetUrl = (value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+  if (/^(https?:)?\/\//.test(value) || value.startsWith("data:")) {
+    return value;
+  }
+  const normalizedPath = value.replace(/^\/+/, "");
+  return new URL(normalizedPath, new URL(APP_BASE_URL, window.location.origin)).toString();
+};
+
+const RUNTIME_CONFIG_URL = resolveAssetUrl("pyodide/runtime-config.json");
 
 const PYTHON_BOOTSTRAP_LINES = [
   "import json",
@@ -176,14 +189,15 @@ const writePythonSources = async (pyodide, sources) => {
     if (entry.url === undefined || entry.path === undefined) {
       throw new Error("Each pythonSources entry needs both url and path.");
     }
-    const response = await fetch(entry.url);
+    const sourceUrl = resolveAssetUrl(entry.url);
+    const response = await fetch(sourceUrl);
     if (response.ok !== true) {
-      throw new Error("Failed to fetch Python source: " + entry.url);
+      throw new Error("Failed to fetch Python source: " + sourceUrl);
     }
     const content = await response.text();
     const targetPath = "/code_visualizer_runtime/" + entry.path;
     const directory = targetPath.split("/").slice(0, -1).join("/");
-    console.log("[pyodide] writing", targetPath, "from", entry.url);
+    console.log("[pyodide] writing", targetPath, "from", sourceUrl);
     try {
       ensureDirectory(pyodide, directory);
       pyodide.FS.writeFile(targetPath, content, { encoding: "utf8" });
@@ -197,8 +211,8 @@ const toInstallSpecifier = (value) => {
   if (typeof value !== "string") {
     return value;
   }
-  if (value.startsWith("/")) {
-    return new URL(value, window.location.origin).toString();
+  if (value.startsWith("/") || value.startsWith("./") || value.startsWith("pyodide/") || value.endsWith(".whl")) {
+    return resolveAssetUrl(value);
   }
   return value;
 };

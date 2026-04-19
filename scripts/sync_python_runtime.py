@@ -90,7 +90,7 @@ def _python_source_entries() -> list[dict[str, str]]:
             relative_path = init_file.relative_to(PYODIDE_PYTHON_ROOT)
             entries.append(
                 {
-                    "url": f"/pyodide/python/{relative_path.as_posix()}",
+                    "url": f"pyodide/python/{relative_path.as_posix()}",
                     "path": relative_path.as_posix(),
                 }
             )
@@ -98,7 +98,7 @@ def _python_source_entries() -> list[dict[str, str]]:
             relative_path = Path(package_name) / filename
             entries.append(
                 {
-                    "url": f"/pyodide/python/{relative_path.as_posix()}",
+                    "url": f"pyodide/python/{relative_path.as_posix()}",
                     "path": relative_path.as_posix(),
                 }
             )
@@ -110,7 +110,7 @@ def _python_source_entries() -> list[dict[str, str]]:
 def _update_runtime_config(wheel_name: str) -> None:
     config = json.loads(RUNTIME_CONFIG_PATH.read_text(encoding="utf-8"))
     config["pythonSources"] = _python_source_entries()
-    config["wheelUrls"] = [f"/pyodide/wheels/{wheel_name}"]
+    config["wheelUrls"] = [f"pyodide/wheels/{wheel_name}"]
     RUNTIME_CONFIG_PATH.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     print(f"updated {RUNTIME_CONFIG_PATH.relative_to(REPO_ROOT)}")
 
