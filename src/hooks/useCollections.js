@@ -1,18 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 export const useCollections = (storageKey) => {
-  const [collections, setCollections] = useState([]);
-
-  useEffect(() => {
+  const [collections, setCollections] = useState(() => {
     try {
       const stored = window.localStorage.getItem(storageKey);
       if (stored) {
-        setCollections(JSON.parse(stored));
+        return JSON.parse(stored);
       }
     } catch (error) {
       console.error(error);
     }
-  }, [storageKey]);
+    return [];
+  });
 
   const persistCollections = useCallback(
     (nextCollections) => {

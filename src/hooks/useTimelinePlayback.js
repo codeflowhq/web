@@ -3,26 +3,23 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { buildTimelineFrames } from "../lib/timeline";
 
 export const useTimelinePlayback = (manifest) => {
-  const [activeTimelineKey, setActiveTimelineKey] = useState("");
+  const [requestedTimelineKey, setActiveTimelineKey] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
 
   const timelineFrames = useMemo(() => buildTimelineFrames(manifest), [manifest]);
+  const activeTimelineKey = useMemo(() => {
+    if (timelineFrames.length === 0) {
+      return "";
+    }
+    return timelineFrames.some((frame) => frame.timelineKey === requestedTimelineKey)
+      ? requestedTimelineKey
+      : timelineFrames[0].timelineKey;
+  }, [requestedTimelineKey, timelineFrames]);
   const activeTimelineIndex = useMemo(() => {
     const index = timelineFrames.findIndex((frame) => frame.timelineKey === activeTimelineKey);
     return index >= 0 ? index : 0;
   }, [activeTimelineKey, timelineFrames]);
   const activeTimelineFrame = timelineFrames[activeTimelineIndex];
-
-  useEffect(() => {
-    if (timelineFrames.length === 0) {
-      setActiveTimelineKey("");
-      setIsPlaying(false);
-      return;
-    }
-    setActiveTimelineKey((prev) => (
-      timelineFrames.some((frame) => frame.timelineKey === prev) ? prev : timelineFrames[0].timelineKey
-    ));
-  }, [timelineFrames]);
 
   useEffect(() => {
     if (!isPlaying || timelineFrames.length === 0) {

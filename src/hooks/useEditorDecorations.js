@@ -103,7 +103,7 @@ export const useEditorDecorations = ({
     try {
       currentDecorationsRef.current = editor.deltaDecorations(currentDecorationsRef.current, decorations);
       editor.updateOptions({ readOnly: selectionEnabled, mouseStyle: "text" });
-    } catch (_error) {
+    } catch {
       // Monaco can dispose between React passes during remount; skip stale updates.
     }
   }, [activeExecutionLine, selectionEnabled]);
@@ -111,7 +111,6 @@ export const useEditorDecorations = ({
   useEffect(() => () => {
     mouseDownDisposableRef.current?.dispose();
     mouseUpDisposableRef.current?.dispose();
-    hoverDisposableRef.current?.dispose();
     mouseDownDisposableRef.current = null;
     mouseUpDisposableRef.current = null;
     currentDecorationsRef.current = [];

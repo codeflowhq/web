@@ -1,16 +1,7 @@
 import { useCallback, useState } from "react";
 
 import { runVisualizationInBrowser } from "../lib/browserRuntime";
-
-const normalizeRuntimeError = (error) => {
-  const raw = error instanceof Error ? error.message : String(error);
-  const lines = raw.split("\n").map((line) => line.trim()).filter(Boolean);
-  const useful = lines.find((line) => !line.startsWith("Traceback") && !line.startsWith("File \"" ));
-  if (useful) {
-    return useful.replace(/^Status:\s*/, "");
-  }
-  return raw.replace(/^Status:\s*/, "");
-};
+import { normalizeRuntimeError } from "../shared/errors/runtimeErrors";
 
 export const useVisualizationRun = ({ globalConfig, sourceCode, variableConfigs, watchVariables }) => {
   const [manifest, setManifest] = useState([]);

@@ -8,7 +8,6 @@ import {
   extractCandidateVariables,
   isPythonIdentifier,
   isWatchExpression,
-  parseWatchInput,
 } from "./lib/watchExpressions";
 import {
   COLLECTIONS_STORAGE_KEY,
@@ -24,8 +23,7 @@ import { useTimelinePlayback } from "./hooks/useTimelinePlayback";
 import { useEditorDecorations } from "./hooks/useEditorDecorations";
 import { useShareState } from "./hooks/useShareState";
 import { useVisualizationRun } from "./hooks/useVisualizationRun";
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
+import { useVariableWatch } from "./hooks/useVariableWatch";
 import "antd/dist/reset.css";
 import "./App.css";
 
@@ -53,18 +51,36 @@ function App() {
   const [modal, modalContextHolder] = Modal.useModal();
   const [topMenuKey, setTopMenuKey] = useState("visualization");
   const [vizMenuKey, setVizMenuKey] = useState("main");
-  const [watchDraft, setWatchDraft] = useState("");
-  const [selectedVariable, setSelectedVariable] = useState(null);
-  const [selectionLocked, setSelectionLocked] = useState(false);
   const [sourceCode, setSourceCode] = useState(defaultSnippet);
-  const [watchVariables, setWatchVariables] = useState(["data"]);
   const [globalConfig, setGlobalConfig] = useState(defaultGlobalConfig);
-  const [variableConfigs, setVariableConfigs] = useState({});
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [collectionName, setCollectionName] = useState("");
-  const [configDrawerOpen, setConfigDrawerOpen] = useState(false);
-  const [configDrawerVariable, setConfigDrawerVariable] = useState(null);
-  const [pendingWatchVariable, setPendingWatchVariable] = useState(null);
+  const {
+    closeConfigDrawer,
+    configDrawerOpen,
+    configDrawerVariable,
+    handleAddWatchVariable,
+    handleOpenVariableConfig,
+    handleSubmitWatchExpression,
+    handleVariableConfigChange,
+    pendingWatchVariable,
+    selectedVariable,
+    selectionLocked,
+    setPendingWatchVariable,
+    setSelectedVariable,
+    setSelectionLocked,
+    setVariableConfigs,
+    setWatchDraft,
+    setWatchVariables,
+    variableConfigs,
+    watchDraft,
+    watchVariables,
+  } = useVariableWatch({
+    defaultVariableConfig,
+    initialWatchVariables: ["data"],
+    isWatchExpression,
+    messageApi,
+  });
   const lastErrorRef = useRef("");
 
   const { manifest, runVisualization, setStatusMessage, status, statusMessage } = useVisualizationRun({
@@ -101,42 +117,6 @@ function App() {
     }
     return null;
   }, [activeTimelineKey, manifest]);
-
-  const handleOpenVariableConfig = useCallback((variableName) => {
-    setVariableConfigs((prev) => ({
-      ...prev,
-      [variableName]: prev[variableName] ?? defaultVariableConfig,
-    }));
-    setConfigDrawerVariable(variableName);
-    setConfigDrawerOpen(true);
-  }, []);
-
-  const handleAddWatchVariable = useCallback(
-    (variableName, options = {}) => {
-      if (!isWatchExpression(variableName)) {
-        return;
-      }
-      setSelectedVariable(variableName);
-      const alreadyWatched = watchVariables.includes(variableName);
-      if (options.openConfig && !alreadyWatched) {
-        setVariableConfigs((prev) => ({
-          ...prev,
-          [variableName]: prev[variableName] ?? defaultVariableConfig,
-        }));
-        setPendingWatchVariable(variableName);
-        setConfigDrawerVariable(variableName);
-        setConfigDrawerOpen(true);
-        return;
-      }
-      setWatchVariables((prev) => (prev.includes(variableName) ? prev : [...prev, variableName]));
-      if (options.openConfig) {
-        handleOpenVariableConfig(variableName);
-      } else {
-        messageApi.success(`Added ${variableName} to watch list.`);
-      }
-    },
-    [handleOpenVariableConfig, messageApi, watchVariables],
-  );
 
   const { handleEditorMount } = useEditorDecorations({
     activeExecutionLine,
@@ -178,7 +158,7 @@ function App() {
     if (selectedVariable && !candidateVariables.includes(selectedVariable) && !watchVariables.includes(selectedVariable)) {
       setSelectedVariable(null);
     }
-  }, [candidateVariables, selectedVariable, watchVariables]);
+  }, [candidateVariables, selectedVariable, setSelectedVariable, watchVariables]);
 
   useEffect(() => {
     window.__lastManifest = manifest;
@@ -229,7 +209,7 @@ function App() {
       setVizMenuKey("main");
       messageApi.success(`Loaded ${record.name}.`);
     },
-    [messageApi],
+    [messageApi, setSelectedVariable, setSelectionLocked, setVariableConfigs, setWatchVariables],
   );
 
   const handleDeleteCollection = useCallback((record) => {
@@ -249,38 +229,8 @@ function App() {
       setVizMenuKey("main");
       messageApi.success(`Loaded example ${example.title}.`);
     },
-    [messageApi],
+    [messageApi, setSelectedVariable, setSelectionLocked, setVariableConfigs, setWatchVariables],
   );
-
-  const handleVariableConfigChange = useCallback(
-    (field, value) => {
-      if (!configDrawerVariable) {
-        return;
-      }
-      setVariableConfigs((prev) => ({
-        ...prev,
-        [configDrawerVariable]: {
-          ...defaultVariableConfig,
-          ...(prev[configDrawerVariable] ?? {}),
-          [field]: value,
-        },
-      }));
-    },
-    [configDrawerVariable],
-  );
-
-  const handleSubmitWatchExpression = useCallback(() => {
-    const candidate = watchDraft.trim();
-    if (!candidate) {
-      return;
-    }
-    if (!isWatchExpression(candidate)) {
-      messageApi.error("Invalid watch expression.");
-      return;
-    }
-    handleAddWatchVariable(candidate, { openConfig: true });
-    setWatchDraft("");
-  }, [handleAddWatchVariable, messageApi, watchDraft]);
 
   const configTableColumns = useMemo(
     () => [
@@ -327,10 +277,9 @@ function App() {
   );
 
   const handleRunVisualization = useCallback(async () => {
-    setConfigDrawerOpen(false);
-    setPendingWatchVariable(null);
+    closeConfigDrawer();
     await runVisualization();
-  }, [runVisualization]);
+  }, [closeConfigDrawer, runVisualization]);
 
   const editorOptions = useMemo(
     () => ({
@@ -457,7 +406,7 @@ function App() {
           defaultVariableConfig={defaultVariableConfig}
           viewKindOptions={VIEW_KIND_OPTIONS}
           pendingWatchVariable={pendingWatchVariable}
-          onClose={() => { setConfigDrawerOpen(false); setPendingWatchVariable(null); }}
+          onClose={closeConfigDrawer}
           onChange={handleVariableConfigChange}
           setVariableConfigs={setVariableConfigs}
           setWatchVariables={setWatchVariables}
