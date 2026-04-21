@@ -7,9 +7,6 @@ import shutil
 import subprocess
 import tempfile
 
-from vendor_browser_deps import SOURCES as VENDORED_SOURCES
-from vendor_browser_deps import main as vendor_browser_deps
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LIB_ROOT = REPO_ROOT.parents[1] / "code-visualizer" / "src" / "code_visualizer"
 PYODIDE_ROOT = REPO_ROOT / "public" / "pyodide"
@@ -17,6 +14,10 @@ PYODIDE_PYTHON_ROOT = PYODIDE_ROOT / "python"
 PYODIDE_WHEEL_ROOT = PYODIDE_ROOT / "wheels"
 RUNTIME_ROOT = PYODIDE_PYTHON_ROOT / "code_visualizer"
 RUNTIME_CONFIG_PATH = PYODIDE_ROOT / "runtime-config.json"
+BROWSER_DEPENDENCY_REPOS = {
+    "step_tracer": "https://github.com/edcraft-org/step-tracer.git",
+    "query_engine": "https://github.com/edcraft-org/query-engine.git",
+}
 
 
 def _sync_code_visualizer_package() -> int:
@@ -50,10 +51,15 @@ def _strip_browser_dependencies(pyproject_text: str) -> str:
 
 
 
-def _build_code_visualizer_wheel() -> str:
+def _clean_wheels(prefixes: tuple[str, ...]) -> None:
     PYODIDE_WHEEL_ROOT.mkdir(parents=True, exist_ok=True)
-    for existing in PYODIDE_WHEEL_ROOT.glob("code_visualizer-*.whl"):
-        existing.unlink()
+    for prefix in prefixes:
+        for existing in PYODIDE_WHEEL_ROOT.glob(f"{prefix}-*.whl"):
+            existing.unlink()
+
+
+def _build_code_visualizer_wheel() -> str:
+    _clean_wheels(("code_visualizer",))
 
     repo_root = LIB_ROOT.parents[1]
     with tempfile.TemporaryDirectory(prefix="code_visualizer_browser_build_") as tmp_dir:
@@ -80,47 +86,52 @@ def _build_code_visualizer_wheel() -> str:
     return wheels[-1].name
 
 
-def _python_source_entries() -> list[dict[str, str]]:
-    entries: list[dict[str, str]] = []
+def _build_browser_dependency_wheels() -> list[str]:
+    _clean_wheels(tuple(BROWSER_DEPENDENCY_REPOS))
+    built_wheels: list[str] = []
+    with tempfile.TemporaryDirectory(prefix="codeflow_browser_deps_") as tmp_dir:
+        tmp_root = Path(tmp_dir)
+        for package_name, repo_url in BROWSER_DEPENDENCY_REPOS.items():
+            clone_dir = tmp_root / package_name
+            subprocess.run(
+                ["git", "clone", "--depth", "1", repo_url, str(clone_dir)],
+                check=True,
+            )
+            subprocess.run(
+                ["uv", "build", "--wheel", "--out-dir", str(PYODIDE_WHEEL_ROOT)],
+                cwd=clone_dir,
+                check=True,
+            )
+            wheels = sorted(PYODIDE_WHEEL_ROOT.glob(f"{package_name}-*.whl"))
+            if not wheels:
+                raise SystemExit(f"Failed to build {package_name} wheel")
+            built_wheels.append(wheels[-1].name)
+    return built_wheels
 
-    for package_name, files in VENDORED_SOURCES.items():
+
+def _remove_legacy_python_sources() -> None:
+    for package_name in BROWSER_DEPENDENCY_REPOS:
         package_root = PYODIDE_PYTHON_ROOT / package_name
-        init_file = package_root / "__init__.py"
-        if init_file.exists():
-            relative_path = init_file.relative_to(PYODIDE_PYTHON_ROOT)
-            entries.append(
-                {
-                    "url": f"pyodide/python/{relative_path.as_posix()}",
-                    "path": relative_path.as_posix(),
-                }
-            )
-        for filename in sorted(files):
-            relative_path = Path(package_name) / filename
-            entries.append(
-                {
-                    "url": f"pyodide/python/{relative_path.as_posix()}",
-                    "path": relative_path.as_posix(),
-                }
-            )
-
-    entries.sort(key=lambda entry: entry["path"])
-    return entries
+        if package_root.exists():
+            shutil.rmtree(package_root)
 
 
-def _update_runtime_config(wheel_name: str) -> None:
+def _update_runtime_config(wheel_names: list[str]) -> None:
     config = json.loads(RUNTIME_CONFIG_PATH.read_text(encoding="utf-8"))
-    config["pythonSources"] = _python_source_entries()
-    config["wheelUrls"] = [f"pyodide/wheels/{wheel_name}"]
+    config["pythonSources"] = []
+    config["wheelUrls"] = [f"pyodide/wheels/{wheel_name}" for wheel_name in wheel_names]
     RUNTIME_CONFIG_PATH.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     print(f"updated {RUNTIME_CONFIG_PATH.relative_to(REPO_ROOT)}")
 
 
 def main() -> None:
     copied = _sync_code_visualizer_package()
-    vendor_browser_deps()
+    _remove_legacy_python_sources()
+    dependency_wheels = _build_browser_dependency_wheels()
     wheel_name = _build_code_visualizer_wheel()
-    _update_runtime_config(wheel_name)
-    print(f"done: synced {copied} Python files to {RUNTIME_ROOT}, built {wheel_name}, and vendored browser deps")
+    wheel_names = [*dependency_wheels, wheel_name]
+    _update_runtime_config(wheel_names)
+    print(f"done: synced {copied} Python files to {RUNTIME_ROOT} and built browser wheels: {', '.join(wheel_names)}")
 
 
 if __name__ == "__main__":

@@ -80,9 +80,7 @@ const ensureDirectory = (pyodide, path) => {
 
 const writePythonSources = async (pyodide, sources) => {
   if (sources.length === 0) {
-    throw new Error(
-      "Browser mode needs bundled Python sources or wheels. Add entries to public/pyodide/runtime-config.json.",
-    );
+    return;
   }
 
   ensureDirectory(pyodide, "/code_visualizer_runtime");
@@ -179,4 +177,3 @@ export const bootstrapRuntime = async () => {
   }
   return runtimePromise;
 };
-
