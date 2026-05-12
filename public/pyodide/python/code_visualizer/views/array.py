@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from typing import Any
 
@@ -13,6 +14,18 @@ from ..view_utils import (
     _stable_svg_id,
 )
 from .common import flatten_nested_preview_frame, new_node_id, safe_dot_token
+
+
+def _array_focus_index(focus_path: str | None, logical_name: str) -> int | None:
+    if not focus_path:
+        return None
+    normalized_focus = focus_path.replace('"', "'")
+    normalized_name = logical_name.replace('"', "'")
+    if not normalized_focus.startswith(normalized_name):
+        return None
+    suffix = normalized_focus[len(normalized_name):]
+    match = re.match(r"^\[(\d+)\]", suffix)
+    return int(match.group(1)) if match else None
 
 
 def build_array_view_node_cells(runtime: dict[str, Any], value: Any, name: str, depth: int) -> str:
@@ -39,6 +52,7 @@ def build_array_view_node_cells(runtime: dict[str, Any], value: Any, name: str, 
         graph.graph_attrs["label"] = f"<<font point-size='16' color='#0f172a'><b>{logical_name}</b></font>>"
     graph.graph_attrs.setdefault("labelloc", "t")
     graph.graph_attrs.setdefault("labeljust", "c")
+    focus_idx = _array_focus_index(runtime.get("focus_path"), logical_name)
 
     root_id = new_node_id(runtime, "arr_exp")
     graph.add_node(
@@ -71,6 +85,10 @@ def build_array_view_node_cells(runtime: dict[str, Any], value: Any, name: str, 
         for idx in range(limit):
             item = array[idx]
             slot_name = f"{name}[{idx}]"
+            is_focused = focus_idx is not None and focus_idx == idx
+            value_fill = "#eff6ff" if is_focused else "#ffffff"
+            border_color = "#60a5fa" if is_focused else "#cbd5e1"
+            penwidth = "1.6" if is_focused else "1.1"
             if _is_scalar_value(item):
                 scalar_key = str(item)
                 occurrence = occurrence_counts.get(scalar_key, 0)
@@ -82,8 +100,7 @@ def build_array_view_node_cells(runtime: dict[str, Any], value: Any, name: str, 
                 node_id = safe_dot_token("arr_cell", logical_name or "array", idx)
                 svg_id = _stable_svg_id(logical_name or "array", "array", "cell", idx)
                 if isinstance(item, (list, tuple, set, frozenset, dict)):
-                    inline_depth = max(1, cell_depth)
-                    content_html = _format_nested_value(item, inline_depth, item_limit, None, slot_name)
+                    content_html = _format_nested_value(item, cell_depth, item_limit, None, slot_name)
                 else:
                     nested_renderer = make_nested_renderer(runtime, node_id, f"{node_id}_value", slot_name)
                     content_html = flatten_nested_preview_frame(
@@ -91,7 +108,7 @@ def build_array_view_node_cells(runtime: dict[str, Any], value: Any, name: str, 
                     )
             node_label = (
                 "<table border='1' cellborder='1' cellspacing='0' cellpadding='0'>"
-                f"<tr><td port='{node_id}_value' width='{value_cell_width}' height='{value_cell_height}' fixedsize='true' align='center' bgcolor='#ffffff' cellpadding='2'>{content_html}</td></tr>"
+                f"<tr><td port='{node_id}_value' width='{value_cell_width}' height='{value_cell_height}' fixedsize='true' align='center' bgcolor='{value_fill}' cellpadding='2'>{content_html}</td></tr>"
                 f"<tr><td align='center' bgcolor='#ffffff' cellpadding='1'><font color='#94a3b8' point-size='10'>{idx}</font></td></tr>"
                 "</table>"
             )
@@ -104,7 +121,7 @@ def build_array_view_node_cells(runtime: dict[str, Any], value: Any, name: str, 
                         "kind": "array_cell",
                         "html_label": True,
                         "rank": "array_items",
-                        "node_attrs": {"shape": "plain", "color": "#cbd5e1", "penwidth": "1.1", "id": svg_id},
+                        "node_attrs": {"shape": "plain", "color": border_color, "penwidth": penwidth, "id": svg_id},
                     },
                 )
             )

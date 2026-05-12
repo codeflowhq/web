@@ -273,7 +273,46 @@ body {
 }
 
 .visual-grid-item {
-  min-width: 0;
+  min-width: 320px;
+  min-height: 260px;
+  width: 100%;
+  height: 520px;
+  resize: both;
+  overflow: auto;
+  position: relative;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.visual-grid-item.is-dragging {
+  opacity: 0.58;
+}
+
+.visual-drag-handle {
+  position: sticky;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  margin: 0 0 8px 8px;
+  cursor: grab;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #dbeafe;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.visual-drag-handle:active {
+  cursor: grabbing;
+}
+
+.visual-grid-item > .ant-card {
+  flex: 1;
+  min-height: 0;
+}
+
+.visual-grid-item > .ant-card > .ant-card-body {
+  height: calc(100% - 58px);
+  overflow: auto;
 }
 
 .drawer-action-footer {

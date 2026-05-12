@@ -281,6 +281,12 @@ function App() {
     await runVisualization();
   }, [closeConfigDrawer, runVisualization]);
 
+  const sideMenuKeys = topMenuKey === "library" ? [] : [vizMenuKey];
+  const handleSideMenuClick = useCallback(({ key }) => {
+    setTopMenuKey("visualization");
+    setVizMenuKey(key);
+  }, []);
+
   const editorOptions = useMemo(
     () => ({
       minimap: { enabled: false },
@@ -315,19 +321,17 @@ function App() {
         </Header>
 
         <Layout>
-          {topMenuKey === "visualization" ? (
-            <Sider width={220} theme="light" className="app-sider">
-              <Menu
-                mode="inline"
-                selectedKeys={[vizMenuKey]}
-                onClick={({ key }) => setVizMenuKey(key)}
-                items={[
-                  { key: "main", label: "Main" },
-                  { key: "config", label: "Config" },
-                ]}
-              />
-            </Sider>
-          ) : null}
+          <Sider width={220} theme="light" className="app-sider">
+            <Menu
+              mode="inline"
+              selectedKeys={sideMenuKeys}
+              onClick={handleSideMenuClick}
+              items={[
+                { key: "main", label: "Main" },
+                { key: "config", label: "Config" },
+              ]}
+            />
+          </Sider>
 
           <Content className="app-content">
             <div className="page-copy">

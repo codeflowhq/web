@@ -15,6 +15,7 @@ from .common import (
     VariableTraceEvent,
     WatchFilter,
     WatchTarget,
+    _access_path_matches,
     _format_trace_slot_name,
     _normalize_access_path,
     _normalize_watch_filters,
@@ -214,6 +215,14 @@ def _project_expression_watch_events(events: Sequence[VariableTraceEvent], filte
             projected_value = _extract_access_path_value(event.value, rule.access_path, rule.name)
             if projected_value is _MISSING:
                 continue
+            focus_path = event.access_path if _access_path_matches(rule.access_path, event.access_path) else rule.access_path
+            access_paths = tuple(
+                dict.fromkeys(
+                    path
+                    for path in (focus_path, *event.access_paths)
+                    if path is not None and _access_path_matches(rule.access_path, path)
+                )
+            )
             updated.append(
                 VariableTraceEvent(
                     variable=rule.trace_name or rule.access_path,
@@ -222,9 +231,9 @@ def _project_expression_watch_events(events: Sequence[VariableTraceEvent], filte
                     scope_id=event.scope_id,
                     execution_id=event.execution_id,
                     var_id=event.var_id,
-                    access_path=rule.access_path,
+                    access_path=focus_path,
                     order=event.order,
-                    access_paths=(rule.access_path,),
+                    access_paths=access_paths or (focus_path,),
                 )
             )
     return updated
@@ -403,12 +412,15 @@ def trace_algorithm(
     filters = _normalize_watch_filters(watch_variables)
     snapshots = _query_variable_snapshots(exec_ctx, filters)
     limited = snapshots if max_events is None else snapshots[: max(0, max_events)]
+    watched_roots = {rule.name for rule in filters if rule.name and rule.access_path is None}
 
     events: list[VariableTraceEvent] = []
     for index, snapshot in enumerate(limited, start=1):
         trace_name = snapshot.name
         for rule in filters:
             if rule.matches(snapshot):
+                if rule.access_path is not None and snapshot.name in watched_roots:
+                    continue
                 trace_name = rule.trace_name or rule.access_path or rule.name or snapshot.name
                 break
         events.append(
@@ -461,6 +473,14 @@ def build_traces(
     return traces
 
 
+def _focus_path_from_frame_meta(meta: Mapping[str, Any]) -> str | None:
+    access_paths = [path for path in meta.get("access_paths", []) if isinstance(path, str)]
+    if access_paths:
+        return max(access_paths, key=len)
+    access_path = meta.get("access_path")
+    return access_path if isinstance(access_path, str) else None
+
+
 def visualize_trace(
     trace: Trace,
     *,
@@ -478,7 +498,7 @@ def visualize_trace(
         base_override = cfg.view_name_map.get(trace.name)
         if base_override is not None and slot_name not in cfg.view_name_map:
             cfg.view_name_map[slot_name] = base_override
-        focus_path = frame.meta.get("access_path")
+        focus_path = _focus_path_from_frame_meta(frame.meta)
         if focus_path:
             cfg.focus_path_map[slot_name] = focus_path
         else:

@@ -3,6 +3,7 @@ import {
   ArrowLeftOutlined,
   ArrowRightOutlined,
   FolderOpenOutlined,
+  HolderOutlined,
   LockOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
@@ -13,7 +14,7 @@ import {
   UnlockOutlined,
 } from "@ant-design/icons";
 import { Button, Card, Empty, Input, Slider, Space, Tag, Tooltip, Typography } from "antd";
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import VariablePanel from "./VariablePanel";
 
@@ -51,8 +52,57 @@ const VisualizationMainPage = ({
   timelineFrames,
   variableConfigs,
 }) => {
+  const [visualOrder, setVisualOrder] = useState([]);
+  const [draggingVariable, setDraggingVariable] = useState(null);
+  const dragSourceRef = useRef(null);
+  const manifestVariables = useMemo(() => manifest.map((entry) => entry.variable), [manifest]);
+
+  const orderedManifest = useMemo(() => {
+    const kept = visualOrder.filter((variable) => manifestVariables.includes(variable));
+    const added = manifestVariables.filter((variable) => !kept.includes(variable));
+    const orderedVariables = [...kept, ...added];
+    const entryByVariable = new Map(manifest.map((entry) => [entry.variable, entry]));
+    return orderedVariables.map((variable) => entryByVariable.get(variable)).filter(Boolean);
+  }, [manifest, manifestVariables, visualOrder]);
+
+  const handleVisualDragStart = useCallback((event, variable) => {
+    dragSourceRef.current = variable;
+    setDraggingVariable(variable);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", variable);
+  }, []);
+
+  const handleVisualDrop = useCallback((event, targetVariable) => {
+    event.preventDefault();
+    const sourceVariable = dragSourceRef.current || event.dataTransfer.getData("text/plain");
+    dragSourceRef.current = null;
+    setDraggingVariable(null);
+    if (!sourceVariable || sourceVariable === targetVariable) {
+      return;
+    }
+    setVisualOrder((prev) => {
+      const kept = prev.filter((variable) => manifestVariables.includes(variable));
+      const added = manifestVariables.filter((variable) => !kept.includes(variable));
+      const current = [...kept, ...added];
+      const sourceIndex = current.indexOf(sourceVariable);
+      const targetIndex = current.indexOf(targetVariable);
+      if (sourceIndex < 0 || targetIndex < 0) {
+        return prev;
+      }
+      const next = [...current];
+      next.splice(sourceIndex, 1);
+      next.splice(targetIndex, 0, sourceVariable);
+      return next;
+    });
+  }, [manifestVariables]);
+
+  const handleVisualDragEnd = useCallback(() => {
+    dragSourceRef.current = null;
+    setDraggingVariable(null);
+  }, []);
+
   const visualsPanel = useMemo(() => {
-    if (manifest.length === 0) {
+    if (orderedManifest.length === 0) {
       return (
         <Card className="surface-card">
           <Empty description="No visuals yet" />
@@ -61,8 +111,27 @@ const VisualizationMainPage = ({
     }
     return (
       <div className="visual-grid">
-        {manifest.map((entry) => (
-          <div key={entry.variable} className="visual-grid-item">
+        {orderedManifest.map((entry) => (
+          <div
+            key={entry.variable}
+            className={`visual-grid-item${draggingVariable === entry.variable ? " is-dragging" : ""}`}
+            onDragOver={(event) => {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+            }}
+            onDrop={(event) => handleVisualDrop(event, entry.variable)}
+          >
+            <Button
+              className="visual-drag-handle"
+              size="small"
+              type="text"
+              icon={<HolderOutlined />}
+              draggable
+              onDragStart={(event) => handleVisualDragStart(event, entry.variable)}
+              onDragEnd={handleVisualDragEnd}
+            >
+              Drag
+            </Button>
             <VariablePanel
               entry={entry}
               activeTimelineKey={activeTimelineFrame?.timelineKey ?? ""}
@@ -73,7 +142,16 @@ const VisualizationMainPage = ({
         ))}
       </div>
     );
-  }, [activeTimelineFrame?.timelineKey, handleOpenVariableConfig, manifest, variableConfigs]);
+  }, [
+    activeTimelineFrame?.timelineKey,
+    draggingVariable,
+    handleOpenVariableConfig,
+    handleVisualDragEnd,
+    handleVisualDragStart,
+    handleVisualDrop,
+    orderedManifest,
+    variableConfigs,
+  ]);
 
   return (
     <div className="viz-main-grid">
