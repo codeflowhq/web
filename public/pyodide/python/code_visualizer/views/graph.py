@@ -4,13 +4,19 @@ from collections.abc import Mapping
 from typing import Any
 
 from ..models import EdgeKind, NodeKind, VisualEdge, VisualGraph, VisualNode
-from ..utils.structure_detection import (
+from ..rendering.value_html import _format_value_label
+from ..utils.detection.graph import (
     _looks_like_graph_mapping,
     _try_networkx_edges_nodes,
 )
 from ..view_types import ViewKind
-from ..view_utils import _format_value_label
-from .common import attach_view_title, merge_visual_graph, new_node_id, safe_dot_token
+from .context import ViewBuildContext
+from .graph_layout import (
+    attach_view_title,
+    merge_visual_graph,
+    new_node_id,
+    safe_dot_token,
+)
 
 
 def _edge_label_from_attrs(attrs: Mapping[str, Any]) -> Any:
@@ -88,13 +94,13 @@ def _extract_graph_data(value: Any) -> tuple[list[tuple[Any, Any]], list[tuple[A
     return None
 
 
-def build_graph_view_entry(runtime: dict[str, Any], value: Any, name: str, depth: int) -> str:
+def build_graph_view_entry(runtime: ViewBuildContext, value: Any, name: str, depth: int) -> str:
     graph_data = _extract_graph_data(value)
     if graph_data is None:
         raise TypeError("graph view expects a networkx graph or mapping with nodes/edges")
 
     nodes, edges, directed = graph_data
-    item_limit = runtime["item_limit"]
+    item_limit = runtime.item_limit
     depth_budget = max(0, depth)
     node_label_depth = depth_budget - 1 if depth_budget > 0 else 0
     limit = min(len(nodes), item_limit)

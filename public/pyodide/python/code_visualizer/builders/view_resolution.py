@@ -4,25 +4,12 @@ from collections.abc import Callable
 from typing import Any
 
 from ..config import VisualizerConfig
-from ..converters import ConverterPipeline
-from ..renderers import choose_view
-from ..utils.type_patterns import _match_type_pattern_override
+from ..converters.pipeline import ConverterPipeline
+from ..rendering.auto_view import choose_view
+from ..utils.type_patterns.matching import _match_type_pattern_override
+from ..utils.type_patterns.naming import _match_named_override
+from ..utils.value_shapes import _auto_nested_depth
 from ..view_types import ViewKind, ViewOverrideMap
-from ..view_utils import _auto_nested_depth, _match_named_override
-
-_DEFAULT_NODE_VIEW_MAP: dict[ViewKind, ViewKind] = {
-    ViewKind.ARRAY_CELLS: ViewKind.ARRAY_CELLS_NODE,
-    ViewKind.MATRIX: ViewKind.MATRIX_NODE,
-    ViewKind.TABLE: ViewKind.TABLE_NODE,
-    ViewKind.HASH_TABLE: ViewKind.HASH_TABLE_NODE,
-    ViewKind.LINKED_LIST: ViewKind.LINKED_LIST_NODE,
-    ViewKind.HEAP_DUAL: ViewKind.HEAP_DUAL_NODE,
-    ViewKind.BAR: ViewKind.BAR_NODE,
-}
-
-
-def canonicalize_outer_view(view: ViewKind) -> ViewKind:
-    return _DEFAULT_NODE_VIEW_MAP.get(view, view)
 
 
 def make_value_coercer(config: VisualizerConfig) -> Callable[[Any], Any]:

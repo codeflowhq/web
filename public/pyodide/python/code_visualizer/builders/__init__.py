@@ -1,3 +1,1 @@
-from .graph_artifacts import visualize
-
-__all__ = ["visualize"]
+"""Builder modules for visualization artifacts."""

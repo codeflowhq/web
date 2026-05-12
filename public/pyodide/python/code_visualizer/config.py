@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
-from typing import Any, Literal, Mapping, Sequence
+from typing import Any, Literal
 
-from .converters import ConverterPipeline, ValueConverter, default_converter_pipeline
-from .view_types import ViewKind, ViewOverrideMap, ensure_view_kind
+from .converters.defaults import default_converter_pipeline
+from .converters.pipeline import ConverterPipeline
+from .converters.types import ValueConverter
+from .view_types import ViewKind, ensure_view_kind
 
 
 def _default_recursion_depth_map() -> dict[str | type[Any], int]:
@@ -80,6 +83,7 @@ class VisualizerConfig:
     def step_limit_for(self, trace_name: str, override: int | None = None) -> int | None:
         """Determine how many steps to render for a given trace name."""
 
+        limit: int | None
         if trace_name in self.trace_step_limit_map:
             limit = self.trace_step_limit_map[trace_name]
         elif override is not None:

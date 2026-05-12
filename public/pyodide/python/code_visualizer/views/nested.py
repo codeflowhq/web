@@ -3,59 +3,51 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from ..renderers import render_graphviz_node_link
+from ..rendering.graphviz.graphviz_export import render_graphviz_node_link
+from ..utils.detection.graph import (
+    _looks_like_graph_mapping,
+    _try_networkx_edges_nodes,
+)
+from ..utils.detection.linked import (
+    _collect_linked_list_labels,
+    _looks_like_hash_table,
+)
+from ..utils.detection.tree import (
+    _tree_children,
+)
 from ..utils.image_sources import (
     _detect_image_source,
     _image_html,
     _render_dot_to_image,
 )
-from ..utils.structure_detection import (
-    _collect_linked_list_labels,
-    _looks_like_graph_mapping,
-    _looks_like_hash_table,
-    _tree_children,
-    _try_networkx_edges_nodes,
-)
+from ..utils.value_shapes import _is_matrix_value
 from ..view_types import ViewKind
-from ..view_utils import _is_matrix_value
-
-ViewResolver = Callable[[str, Any, Any], tuple[ViewKind, bool]]
-BuilderRuntime = dict[str, Any]
+from .context import ViewBuildContext, ViewResolver
 
 STRUCTURED_VIEW_KINDS: set[ViewKind] = {
     ViewKind.ARRAY_CELLS,
-    ViewKind.ARRAY_CELLS_NODE,
     ViewKind.TABLE,
-    ViewKind.TABLE_NODE,
     ViewKind.MATRIX,
-    ViewKind.MATRIX_NODE,
     ViewKind.HASH_TABLE,
-    ViewKind.HASH_TABLE_NODE,
     ViewKind.LINKED_LIST,
-    ViewKind.LINKED_LIST_NODE,
     ViewKind.TREE,
     ViewKind.GRAPH,
     ViewKind.HEAP_DUAL,
-    ViewKind.HEAP_DUAL_NODE,
     ViewKind.BAR,
-    ViewKind.BAR_NODE,
     ViewKind.IMAGE,
 }
 RECURSIVE_VIEW_KINDS: set[ViewKind] = {
-    ViewKind.ARRAY_CELLS_NODE,
+    ViewKind.ARRAY_CELLS,
     ViewKind.TREE,
     ViewKind.LINKED_LIST,
-    ViewKind.LINKED_LIST_NODE,
     ViewKind.GRAPH,
     ViewKind.HASH_TABLE,
-    ViewKind.HASH_TABLE_NODE,
     ViewKind.HEAP_DUAL,
-    ViewKind.HEAP_DUAL_NODE,
 }
 
 
 def select_nested_view(
-    runtime: BuilderRuntime,
+    runtime: ViewBuildContext,
     slot_name: str,
     original_value: Any,
     coerced_value: Any,
@@ -64,7 +56,7 @@ def select_nested_view(
     if depth_remaining <= 0:
         return None
 
-    resolver: ViewResolver | None = runtime["resolver"]
+    resolver = runtime.resolver
     if resolver is not None:
         resolved_view, configured = resolver(slot_name, original_value, coerced_value)
         if configured and resolved_view in STRUCTURED_VIEW_KINDS:
@@ -78,12 +70,12 @@ def select_nested_view(
     return None
 
 
-def legacy_nested_view(runtime: BuilderRuntime, value: Any) -> ViewKind | None:
+def legacy_nested_view(runtime: ViewBuildContext, value: Any) -> ViewKind | None:
     if value is None:
         return None
     if _tree_children(value) is not None:
         return ViewKind.TREE
-    if _collect_linked_list_labels(value, min(8, runtime["item_limit"])) is not None:
+    if _collect_linked_list_labels(value, min(8, runtime.item_limit)) is not None:
         return ViewKind.LINKED_LIST
     if isinstance(value, list) and _looks_like_hash_table(value):
         return ViewKind.HASH_TABLE
@@ -101,7 +93,7 @@ def legacy_nested_view(runtime: BuilderRuntime, value: Any) -> ViewKind | None:
 
 
 def experimental_array_nested_resolver(
-    runtime: BuilderRuntime,
+    runtime: ViewBuildContext,
     original_resolver: ViewResolver | None,
 ) -> ViewResolver:
     def _resolver(slot_name: str, original_value: Any, coerced_value: Any) -> tuple[ViewKind, bool]:
@@ -113,7 +105,7 @@ def experimental_array_nested_resolver(
                 return resolved_view, False
         legacy_view = legacy_nested_view(runtime, coerced_value)
         if legacy_view == ViewKind.ARRAY_CELLS:
-            return ViewKind.ARRAY_CELLS_NODE, False
+            return ViewKind.ARRAY_CELLS, False
         if legacy_view in RECURSIVE_VIEW_KINDS:
             return legacy_view, False
         return ViewKind.NODE_LINK, False
@@ -122,16 +114,16 @@ def experimental_array_nested_resolver(
 
 
 def make_nested_renderer(
-    runtime: BuilderRuntime,
+    runtime: ViewBuildContext,
     parent_id: str,
     port_name: str,
     slot_name: str,
 ) -> Callable[[Any, str, int], str | None]:
     from ..graph_view_builder import _build_view
-    from .common import add_edge
+    from .graph_layout import add_edge
 
     def _renderer(child_value: Any, _: str, depth_remaining: int) -> str | None:
-        coerce = runtime["coerce"]
+        coerce = runtime.coerce
         coerced = coerce(child_value)
         next_view = select_nested_view(runtime, slot_name, child_value, coerced, depth_remaining)
         if next_view is None:
@@ -147,7 +139,7 @@ def make_nested_renderer(
 
 
 def render_inline_child_view(
-    runtime: BuilderRuntime,
+    runtime: ViewBuildContext,
     coerced_value: Any,
     slot_name: str,
     view: ViewKind,
@@ -161,10 +153,10 @@ def render_inline_child_view(
             slot_name,
             view,
             depth_remaining,
-            item_limit=runtime["item_limit"],
-            value_coercer=runtime["coerce"],
-            view_resolver=runtime["resolver"],
-            focus_path=runtime.get("focus_path"),
+            item_limit=runtime.item_limit,
+            value_coercer=runtime.coerce,
+            view_resolver=runtime.resolver,
+            focus_path=runtime.focus_path,
         )
     except Exception:
         return None

@@ -7,6 +7,7 @@ Interactive browser UI for `code_visualizer`.
 - `src/` React UI
 - `public/pyodide/` browser runtime assets
 - `scripts/sync_python_runtime.py` rebuilds the Pyodide runtime bundle
+- `scripts/browser_dependency_lock.json` pins browser-side Python dependency builds to immutable upstream refs
 
 ## Commands
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import io
 import tempfile
-from html import escape as html_escape
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote_to_bytes, urlparse
@@ -11,6 +10,8 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from graphviz import Source  # type: ignore[import-untyped]
+
+from ..rendering.html_labels import html_img, html_single_cell_table
 
 _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
 _DATA_URI_SUFFIX = {
@@ -240,11 +241,9 @@ def _detect_image_source(value: Any, *, strict: bool = False) -> str | None:  # 
 
 
 def _image_html(src: str) -> str:
-    safe_src = html_escape(src, quote=True)
-    return (
-        "<table border='0' cellborder='0' cellspacing='0' cellpadding='0'>"
-        f'<tr><td><IMG SRC="{safe_src}" SCALE="true"/></td></tr>'
-        "</table>"
+    return html_single_cell_table(
+        html_img(src, SCALE="true"),
+        table_attrs={"border": "0", "cellborder": "0", "cellspacing": "0", "cellpadding": "0"},
     )
 
 

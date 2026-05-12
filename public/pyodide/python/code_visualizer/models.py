@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class NodeKind(str, Enum):
+class NodeKind(StrEnum):
     SCALAR = "scalar"
     LIST = "list"
     TUPLE = "tuple"
@@ -16,7 +16,7 @@ class NodeKind(str, Enum):
     ELLIPSIS = "ellipsis"
 
 
-class EdgeKind(str, Enum):
+class EdgeKind(StrEnum):
     CONTAINS = "contains"
     INDEX = "index"
     KEY = "key"
@@ -27,13 +27,13 @@ class EdgeKind(str, Enum):
     LAYOUT = "layout"
 
 
-class AnchorKind(str, Enum):
+class AnchorKind(StrEnum):
     VAR = "var"
     FOCUS = "focus"
     SELECTION = "selection"
 
 
-class ArtifactKind(str, Enum):
+class ArtifactKind(StrEnum):
     GRAPHVIZ = "graphviz"
     MERMAID = "mermaid"
     MARKDOWN = "markdown"

@@ -14,10 +14,17 @@ PYODIDE_PYTHON_ROOT = PYODIDE_ROOT / "python"
 PYODIDE_WHEEL_ROOT = PYODIDE_ROOT / "wheels"
 RUNTIME_ROOT = PYODIDE_PYTHON_ROOT / "code_visualizer"
 RUNTIME_CONFIG_PATH = PYODIDE_ROOT / "runtime-config.json"
-BROWSER_DEPENDENCY_REPOS = {
-    "step_tracer": "https://github.com/edcraft-org/step-tracer.git",
-    "query_engine": "https://github.com/edcraft-org/query-engine.git",
-}
+DEPENDENCY_LOCK_PATH = REPO_ROOT / "scripts" / "browser_dependency_lock.json"
+
+
+def _load_browser_dependency_specs() -> dict[str, dict[str, str]]:
+    specs = json.loads(DEPENDENCY_LOCK_PATH.read_text(encoding="utf-8"))
+    if not isinstance(specs, dict) or not specs:
+        raise SystemExit(f"Expected pinned browser dependency specs in {DEPENDENCY_LOCK_PATH}")
+    for package_name, spec in specs.items():
+        if not isinstance(spec, dict) or not spec.get("repo") or not spec.get("ref"):
+            raise SystemExit(f"Dependency {package_name} in {DEPENDENCY_LOCK_PATH} must define repo and ref")
+    return specs
 
 
 def _sync_code_visualizer_package() -> int:
@@ -87,14 +94,20 @@ def _build_code_visualizer_wheel() -> str:
 
 
 def _build_browser_dependency_wheels() -> list[str]:
-    _clean_wheels(tuple(BROWSER_DEPENDENCY_REPOS))
+    browser_dependency_specs = _load_browser_dependency_specs()
+    _clean_wheels(tuple(browser_dependency_specs))
     built_wheels: list[str] = []
     with tempfile.TemporaryDirectory(prefix="codeflow_browser_deps_") as tmp_dir:
         tmp_root = Path(tmp_dir)
-        for package_name, repo_url in BROWSER_DEPENDENCY_REPOS.items():
+        for package_name, spec in browser_dependency_specs.items():
             clone_dir = tmp_root / package_name
             subprocess.run(
-                ["git", "clone", "--depth", "1", repo_url, str(clone_dir)],
+                ["git", "clone", "--depth", "1", spec["repo"], str(clone_dir)],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "checkout", "--detach", spec["ref"]],
+                cwd=clone_dir,
                 check=True,
             )
             subprocess.run(
@@ -110,7 +123,7 @@ def _build_browser_dependency_wheels() -> list[str]:
 
 
 def _remove_legacy_python_sources() -> None:
-    for package_name in BROWSER_DEPENDENCY_REPOS:
+    for package_name in _load_browser_dependency_specs():
         package_root = PYODIDE_PYTHON_ROOT / package_name
         if package_root.exists():
             shutil.rmtree(package_root)

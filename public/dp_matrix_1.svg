@@ -1,5 +1,0 @@
-<svg xmlns='http://www.w3.org/2000/svg' width='220' height='120'>
-  <rect x='10' y='10' width='200' height='100' fill='#fef3c7' stroke='#b45309'/>
-  <text x='20' y='40' font-size='16' fill='#0f172a'>dp[0][0] = 1</text>
-  <text x='20' y='70' font-size='16' fill='#0f172a'>dp[0][1] = 0</text>
-</svg>
